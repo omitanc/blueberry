@@ -44,7 +44,7 @@ def get_video_duration(video_path):
                                     stderr=subprocess.STDOUT)
         # 出力から動画の長さ（秒）を取得
         duration = float(result.stdout)
-        st.write(f"動画の長さ：{duration}秒")
+        st.info(f"動画の長さ：{duration}秒")
         return duration
     except Exception as e:
         print(f"Error getting video duration: {e}")
@@ -62,7 +62,7 @@ def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
     
     # 必要なビデオビットレートを計算（kbps）
     video_bitrate_kbps = (available_video_bits / duration) / 1000
-    st.write(f"変換後ビットレート：{int(video_bitrate_kbps)}kbps")
+    st.info(f"変換後ビットレート：{int(video_bitrate_kbps)}kbps")
 
     return max(int(video_bitrate_kbps), 1)  # ビットレートが非常に小さくならないようにする
 
@@ -144,11 +144,15 @@ def main():
 
     st.title("Blueberry")
     st.subheader("Discordの8MB制限なんて大っ嫌い！w")
+    st.write("\n  \n")
+    st.write("\n  \n")
     
     file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
     resize = st.checkbox("画素数を1/4にする")
     has_not_audio = st.checkbox("音声を除去する")
-    st.warning("2分以上の動画は、圧縮後の画質が大幅に劣化します。")
+    
+    st.write("\n  \n")
+    st.text("※2分以上の動画は、圧縮後の画質が大幅に劣化します。")
     
     if file is not None:
 
@@ -158,7 +162,7 @@ def main():
             saved_file_path = save_uploaded_file(file)
 
             comp_rate = format(os.path.getsize(saved_file_path) / 8192000,'.2f')
-            st.write(f"情報量が1/{comp_rate}に圧縮されます。")
+            st.info(f"情報量が1/{comp_rate}に圧縮されます。")
             
             if saved_file_path:
 
