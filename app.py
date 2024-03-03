@@ -94,11 +94,31 @@ def process_video(video_path, output_path, resize, target_size_mb=8):
 
 
 
-def resize_and_compress_image(image_path, output_path, resize):
+
+def process_image(image_path, output_path, resize):
     image = cv2.imread(image_path)
     if resize:
-        image = cv2.resize(image, (image.shape[1] // 2, image.shape[0] // 2))
-    cv2.imwrite(output_path, image, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+        # 解像度を半分にする
+        image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)
+
+    # 一時ファイルを作成する
+    #temp_dir = tempfile.mkdtemp()
+    #temp_file_path = os.path.join(temp_dir, os.path.basename(output_path))
+    
+    # 初期品質パラメータ
+    quality = 98
+    while quality > 0:
+        # JPEG形式で画像を一時ファイルに保存
+        cv2.imwrite(image_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+        # 生成された一時ファイルのサイズを確認
+        if os.path.getsize(image_path) < 8 * 1024 * 1024:
+            # 最終的な出力パスにファイルを移動
+            shutil.move(image_path, output_path)
+            break  # 目標ファイルサイズに収まったら終了
+        quality -= 2  # 品質を下げて再試行
+
+
+
 
 
 
@@ -111,15 +131,21 @@ def main():
     if file is not None:
         # 圧縮開始ボタンを追加
         if st.button('圧縮開始', use_container_width=True):
+
+            #with tempfile.NamedTemporaryFile(delete=False, suffix="." + file.name.split('.')[-1]) as temp_file:
+                #temp_file.write(file.getvalue())
+                #saved_file_path = temp_file.name
+            
+            output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
+            output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
             saved_file_path = save_uploaded_file(file)
+
+            
             if saved_file_path:
-                output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
-                # 一時ファイルのディレクトリに出力ファイル名を追加して、完全なパスを生成
-                output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
 
                 with st.spinner("処理中..."):
                     if file.type in ["image/png", "image/jpeg", "image/heic"]:
-                        resize_and_compress_image(saved_file_path, output_file_path, resize)
+                        process_image(saved_file_path, output_file_path, resize)
                         st.success("画像処理が完了しました。")
                         st.image(output_file_path)
                         # ダウンロードボタンを表示
@@ -146,8 +172,6 @@ def main():
                                 )
                     else:
                         st.error("サポートされていないファイル形式です。")
-
-
 
 
 
