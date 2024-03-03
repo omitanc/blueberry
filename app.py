@@ -15,8 +15,8 @@ import ffmpeg
 def generate_output_filename(input_filename, suffix):
     # 入力ファイル名から拡張子を取り除く
     name, ext = os.path.splitext(input_filename)
-    # 現在の日時を取得し、文字列としてフォーマットする
     datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # 新しいファイル名を生成する
     output_filename = f"{name}-COMP_{datetime_str}{suffix}"
     return output_filename
@@ -31,7 +31,7 @@ def save_uploaded_file(uploaded_file):
     except Exception as e:
         st.error(f"ファイルの保存中にエラーが発生しました: {e}")
         return None
-    
+
 
 
 def get_video_duration(video_path):
@@ -51,31 +51,26 @@ def get_video_duration(video_path):
 
 
 
-
-def calculate_bitrate(file_size:int, duration:int, audio_bitrate=256):
-    # 目標ファイルサイズをビット単位で計算（8MB = 8 * 1024 * 1024 * 8ビット）
-    target_file_size_bits = file_size * 1024 * 1024
-    # オーディオビットレートをビット単位で計算
+def calculate_bitrate(target_size:int, duration:int, audio_bitrate=256):
+    target_file_size_bits = target_size * 1024 * 1024
     audio_bitrate_bits = audio_bitrate * 1000
-    # ビデオビットレートを計算
+    
+    # 圧縮ビットレートを計算
     video_bitrate = (target_file_size_bits - (audio_bitrate_bits * duration)) / duration
     return max(int(video_bitrate), 0)  # ビットレートが負の値にならないようにする
 
 
 
-
-def process_video(video_path, output_path, resize, target_size_mb=8):
-    # 動画の長さを取得
+def process_video(video_path, output_path, resize:bool, target_size_mb=8):
     duration = get_video_duration(video_path)
-    # 目標ビットレートを計算
     bitrate = calculate_bitrate(target_size_mb, duration)
     
-    # ビデオフィルターの設定
-    video_filters = "scale=iw/2:ih/2" if resize else "scale=iw:ih"
-    # ffmpegコマンドを組み立て
+    video_filters = "scale=iw/2:ih/2" if resize else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+    
     ffmpeg_command = (
         ffmpeg
         .input(video_path)
+        #.filter('scale', 'trunc(iw/2)*2', 'trunc(ih/2)*2')
         .output(output_path, vcodec='libx264', acodec='aac', audio_bitrate='256k', 
                 video_bitrate=f'{bitrate}k', vf=video_filters, crf=23)
         .overwrite_output()
@@ -119,31 +114,23 @@ def process_image(image_path, output_path, resize):
 
 
 
-
-
-
 def main():
     st.title("Blueberry")
     
     file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
-    resize = st.checkbox("サイズを半分にする")
+    resize = st.checkbox("ピクセル数を半分にする")
     
     if file is not None:
-        # 圧縮開始ボタンを追加
-        if st.button('圧縮開始', use_container_width=True):
 
-            #with tempfile.NamedTemporaryFile(delete=False, suffix="." + file.name.split('.')[-1]) as temp_file:
-                #temp_file.write(file.getvalue())
-                #saved_file_path = temp_file.name
-            
+        if st.button('圧縮開始', use_container_width=True):
             output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
             output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
             saved_file_path = save_uploaded_file(file)
-
             
             if saved_file_path:
 
                 with st.spinner("処理中..."):
+                    
                     if file.type in ["image/png", "image/jpeg", "image/heic"]:
                         process_image(saved_file_path, output_file_path, resize)
                         st.success("画像処理が完了しました。")
@@ -157,6 +144,7 @@ def main():
                                     mime="image/png",
                                     use_container_width=True
                                 )
+                            
                     elif file.type in ["video/mp4", "video/mov", "video/quicktime"]:
                         process_video(saved_file_path, output_file_path, resize)
                         st.success("動画処理が完了しました。")
