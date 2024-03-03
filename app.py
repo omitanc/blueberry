@@ -44,6 +44,7 @@ def get_video_duration(video_path):
                                     stderr=subprocess.STDOUT)
         # 出力から動画の長さ（秒）を取得
         duration = float(result.stdout)
+        st.write(f"動画の長さ：{duration}秒")
         return duration
     except Exception as e:
         print(f"Error getting video duration: {e}")
@@ -51,39 +52,53 @@ def get_video_duration(video_path):
 
 
 
-def calculate_bitrate(target_size:int, duration:int, audio_bitrate=256):
-    target_file_size_bits = target_size * 1024 * 1024
-    audio_bitrate_bits = audio_bitrate * 1000
+def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
+    #1MB = 1024 * 1024 * 8ビット
+    target_size_bits = target_size_mb * 1024 * 1024 * 8
+    total_audio_bits = audio_bitrate_kbps * 1024 * duration
     
-    # 圧縮ビットレートを計算
-    video_bitrate = (target_file_size_bits - (audio_bitrate_bits * duration)) / duration
-    return max(int(video_bitrate), 0)  # ビットレートが負の値にならないようにする
+    # ビデオ用に残されたビット数を計算
+    available_video_bits = target_size_bits - total_audio_bits
+    
+    # 必要なビデオビットレートを計算（kbps）
+    video_bitrate_kbps = (available_video_bits / duration) / 1000
+    st.write(f"変換後ビットレート：{int(video_bitrate_kbps)}kbps")
+
+    return max(int(video_bitrate_kbps), 1)  # ビットレートが非常に小さくならないようにする
 
 
 
-def process_video(video_path, output_path, resize:bool, target_size_mb=8):
+
+def process_video(video_path, output_path, resize:bool, has_not_audio:bool, target_size_mb=8):
     duration = get_video_duration(video_path)
     bitrate = calculate_bitrate(target_size_mb, duration)
     
-    video_filters = "scale=iw/2:ih/2" if resize else "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+    video_filters = "fps=30," + ("scale=trunc(iw/2):trunc(ih/2)" if resize else "scale=trunc(iw/2)*2:trunc(ih/2)*2")
     
-    ffmpeg_command = (
-        ffmpeg
-        .input(video_path)
-        #.filter('scale', 'trunc(iw/2)*2', 'trunc(ih/2)*2')
-        .output(output_path, vcodec='libx264', acodec='aac', audio_bitrate='256k', 
-                video_bitrate=f'{bitrate}k', vf=video_filters, crf=23)
-        .overwrite_output()
-        .compile()
-    )
+    if not has_not_audio:
+        ffmpeg_command = (
+            ffmpeg
+            .input(video_path)
+            .output(output_path, vcodec='libx264', acodec='aac', audio_bitrate='256k', 
+                    video_bitrate=f'{bitrate}k', vf=video_filters)
+            .overwrite_output()
+            .compile()
+        )
+    else:
+        ffmpeg_command = (
+            ffmpeg
+            .input(video_path)
+            .output(output_path, vcodec='libx264',acodec='aac', audio_bitrate='256k', video_bitrate=f'{bitrate}k', vf=video_filters, an=None)
+            .overwrite_output()
+            .compile()
+        )
 
     # ffmpegコマンドを実行
     try:
         process = subprocess.run(ffmpeg_command, text=True, capture_output=True)
         if process.returncode != 0:
             st.error(f"ffmpeg error: {process.stderr}")
-        else:
-            st.success("動画処理が完了しました。")
+
     except Exception as e:
         st.error(f"処理中にエラーが発生しました: {e}")
 
@@ -115,10 +130,25 @@ def process_image(image_path, output_path, resize):
 
 
 def main():
+
+    st.set_page_config(
+        page_title = "Blueberry",
+        page_icon = "",
+        layout = "centered",
+        initial_sidebar_state = "collapsed",
+        menu_items = {
+            'Get Help': 'https://github.com/omitanc/blueberry',
+            'About': "JPEG, PNG, MOV, MP4 などのメディアを8MB以下のサイズに圧縮するWebAppです。"
+        }
+    )
+
     st.title("Blueberry")
+    st.subheader("Discordの8MB制限なんて大っ嫌い！w")
     
     file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
-    resize = st.checkbox("ピクセル数を半分にする")
+    resize = st.checkbox("画素数を1/4にする")
+    has_not_audio = st.checkbox("音声を除去する")
+    st.warning("2分以上の動画は、圧縮後の画質が大幅に劣化します。")
     
     if file is not None:
 
@@ -126,6 +156,9 @@ def main():
             output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
             output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
             saved_file_path = save_uploaded_file(file)
+
+            comp_rate = format(os.path.getsize(saved_file_path) / 8192000,'.2f')
+            st.write(f"情報量が1/{comp_rate}に圧縮されます。")
             
             if saved_file_path:
 
@@ -146,7 +179,7 @@ def main():
                                 )
                             
                     elif file.type in ["video/mp4", "video/mov", "video/quicktime"]:
-                        process_video(saved_file_path, output_file_path, resize)
+                        process_video(saved_file_path, output_file_path, resize, has_not_audio)
                         st.success("動画処理が完了しました。")
                         st.video(output_file_path)
                         # ダウンロードボタンを表示
