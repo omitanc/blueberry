@@ -184,10 +184,6 @@ def main():
 
     has_no_audio = st.checkbox("音声を除去する")
     
-    if file is None:
-        st.warning("ファイルがアップロードされていません。")
-        st.stop()
-    
     # ファイルがアップロードされていない場合はここで終了
     if len(files) == 0:
         st.info("ファイルをアップロードしてください。")
@@ -195,6 +191,10 @@ def main():
 
     # アップロードされたファイルを処理
     for file in files:
+        if file is None:
+            st.warning("ファイルがアップロードされていません。")
+            st.stop()
+        
         saved_file_path = save_uploaded_file(file)
         if do_resize:
             if file.type in ["image/png", "image/jpeg", "image/heic"]:
