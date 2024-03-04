@@ -61,7 +61,7 @@ def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
     available_video_bits = target_size_bits - total_audio_bits
     
     # 必要なビデオビットレートを計算（kbps）
-    video_bitrate_kbps = ((available_video_bits / duration) / 1024 ) * 0.93
+    video_bitrate_kbps = ((available_video_bits / duration) / 1024 ) * 0.94
     st.info(f"変換後ビットレート：{int(video_bitrate_kbps)}kbps")
 
     return max(int(video_bitrate_kbps), 1)  # ビットレートが非常に小さくならないようにする
@@ -69,7 +69,7 @@ def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
 
 
 
-def process_video(video_path, output_path, resize:bool, has_no_audio:bool, target_size_mb:int):
+def process_video(video_path, output_path, resize:bool, has_no_audio:bool, target_size_mb:int, show_logs:bool):
     duration = get_video_duration(video_path)
     bitrate = calculate_bitrate(target_size_mb, duration)
     
@@ -105,7 +105,7 @@ def process_video(video_path, output_path, resize:bool, has_no_audio:bool, targe
 
 
 
-def process_image(image_path, output_path, resize:bool, target_size_mb:int):
+def process_image(image_path, output_path, resize:bool, target_size_mb:int, show_logs:bool):
     image = cv2.imread(image_path)
     if resize:
         image = cv2.resize(image, None, fx=0.5, fy=0.5)
@@ -122,13 +122,17 @@ def process_image(image_path, output_path, resize:bool, target_size_mb:int):
             fx_root = round(np.sqrt(1 / comp_rate), 8)
             fy_root = round(np.sqrt(1 / comp_rate), 8)
 
-            #st.text(f"quality:{quality}\ncomprate:{comp_rate}\nroot:{fx_root}, {fy_root}")
+            if show_logs:
+                st.text(f"png_comp_level: {quality}\nfilesize_comp_rate: {comp_rate}\nscale: {fx_root}, {fy_root}")
 
             image = cv2.resize(image, None, fx=fx_root, fy=fy_root)
             cv2.imwrite(temp_file_path, image)
 
             shutil.copy(temp_file_path, output_path)
-            
+
+        if show_logs:
+            st.image(image)
+            st.text(f"png_comp_level: {quality}\nfilesize: {os.path.getsize(temp_file_path)} byte")
 
         if os.path.getsize(temp_file_path) < target_size_mb * 1024 * 1024:
             shutil.copy(temp_file_path, output_path)
@@ -155,8 +159,11 @@ def main():
 
     st.title("Blueberry")
     st.subheader("Discordの25MB制限なんて大っ嫌い！w")
+    
     st.write("\n  \n")
     st.write("\n  \n")
+
+    is_devmode = st.sidebar.checkbox("Developer mode")
 
     
     file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
@@ -197,7 +204,7 @@ def main():
                 with st.spinner("処理中..."):
                     
                     if file.type in ["image/png", "image/jpeg", "image/heic"]:
-                        process_image(saved_file_path, output_file_path, resize, limited_mb)
+                        process_image(saved_file_path, output_file_path, resize, limited_mb, is_devmode)
                         st.success("画像処理が完了しました。")
 
                         if os.path.exists(output_file_path):
@@ -206,8 +213,6 @@ def main():
                         else:
                             st.error(f"ファイルが見つかりません: {output_file_path}")
 
-                        #st.image(output_file_path)
-                        # ダウンロードボタンを表示
                         with open(output_file_path, "rb") as file:
                             btn = st.download_button(
                                     label="ダウンロード",
@@ -218,7 +223,7 @@ def main():
                                 )
                             
                     elif file.type in ["video/mp4", "video/mov", "video/quicktime"]:
-                        process_video(saved_file_path, output_file_path, resize, has_no_audio, limited_mb)
+                        process_video(saved_file_path, output_file_path, resize, has_no_audio, limited_mb, is_devmode)
                         st.success("動画処理が完了しました。")
                         st.video(output_file_path)
                         # ダウンロードボタンを表示
