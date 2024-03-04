@@ -1,5 +1,6 @@
 # Blueberry
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blueberry.streamlit.app/)
 Discordのアップロード制限に悩まされている子羊たちへ、画像や動画を指定サイズギリギリにイイカンジに圧縮できるWebUIを作ったぞ！
 
 ---
