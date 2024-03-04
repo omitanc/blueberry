@@ -153,7 +153,7 @@ def main():
         initial_sidebar_state = "collapsed",
         menu_items = {
             'Get Help': 'https://github.com/omitanc/blueberry',
-            'About': "JPEG, PNG, MOV, MP4 などのメディアを8MB以下のサイズに圧縮するWebAppです。"
+            'About': "JPEG, PNG, MOV, MP4 などのメディアを指定サイズに圧縮するWebAppです。"
         }
     )
 
