@@ -15,7 +15,7 @@ import ffmpeg
 def generate_output_filename(input_filename, suffix):
     # 入力ファイル名から拡張子を取り除く
     name, ext = os.path.splitext(input_filename)
-    datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    datetime_str = datetime.datetime.now().strftime("%Y%m%d")
 
     # 新しいファイル名を生成する
     output_filename = f"{name}-COMP_{datetime_str}{suffix}"
@@ -108,24 +108,38 @@ def process_video(video_path, output_path, resize:bool, has_not_audio:bool, targ
 def process_image(image_path, output_path, resize):
     image = cv2.imread(image_path)
     if resize:
-        # 解像度を半分にする
-        image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)
+        image = cv2.resize(image, None, fx=0.5, fy=0.5)
 
-    # 一時ファイルを作成する
-    #temp_dir = tempfile.mkdtemp()
-    #temp_file_path = os.path.join(temp_dir, os.path.basename(output_path))
+    temp_dir = tempfile.mkdtemp()
+    temp_file_path = os.path.join(temp_dir, os.path.basename(output_path))
     
-    # 初期品質パラメータ
-    quality = 98
-    while quality > 0:
-        # JPEG形式で画像を一時ファイルに保存
-        cv2.imwrite(image_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-        # 生成された一時ファイルのサイズを確認
-        if os.path.getsize(image_path) < 8 * 1024 * 1024:
-            # 最終的な出力パスにファイルを移動
-            shutil.move(image_path, output_path)
-            break  # 目標ファイルサイズに収まったら終了
-        quality -= 2  # 品質を下げて再試行
+    quality = 0
+    while quality  <= 9:
+        cv2.imwrite(temp_file_path, image, [cv2.IMWRITE_PNG_COMPRESSION, quality])
+
+        if quality >= 9:
+            comp_rate = os.path.getsize(temp_file_path) / (8 * 1024 * 1024)
+            fx_root = round(np.sqrt(1 / comp_rate), 8)
+            fy_root = round(np.sqrt(1 / comp_rate), 8)
+
+            st.text(f"quality:{quality}\ncomprate:{comp_rate}\nroot:{fx_root}, {fy_root}")
+
+            image = cv2.resize(image, None, fx=fx_root, fy=fy_root)
+            cv2.imwrite(temp_file_path, image)
+
+            shutil.copy(temp_file_path, output_path)
+            st.text(output_path)
+            
+
+        if os.path.getsize(temp_file_path) < 8 * 1024 * 1024:
+            shutil.copy(temp_file_path, output_path)
+            st.text(output_path)
+            
+            break
+        quality += 1
+    
+    
+
 
 
 
@@ -146,11 +160,15 @@ def main():
     st.subheader("Discordの8MB制限なんて大っ嫌い！w")
     st.write("\n  \n")
     st.write("\n  \n")
+
     
     file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
-    resize = st.checkbox("画素数を1/4にする")
-    has_not_audio = st.checkbox("音声を除去する")
+    col1, col2, col3 = st.columns((5, 8, 1))
+    with col2:
+        resize = st.checkbox("画素数を1/4にする")
+        has_not_audio = st.checkbox("音声を除去する")
     
+    st.write("\n  \n")
     st.write("\n  \n")
     st.text("※2分以上の動画は、圧縮後の画質が大幅に劣化します。")
     
@@ -160,18 +178,25 @@ def main():
             output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
             output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
             saved_file_path = save_uploaded_file(file)
-
-            comp_rate = format(os.path.getsize(saved_file_path) / 8192000,'.2f')
-            st.info(f"情報量が1/{comp_rate}に圧縮されます。")
             
             if saved_file_path:
 
                 with st.spinner("処理中..."):
+
+                    comp_rate = format(os.path.getsize(saved_file_path) / 8192000,'.1f')
+                    st.info(f"情報量が1/{comp_rate}に圧縮されます。")
                     
                     if file.type in ["image/png", "image/jpeg", "image/heic"]:
                         process_image(saved_file_path, output_file_path, resize)
                         st.success("画像処理が完了しました。")
-                        st.image(output_file_path)
+
+                        if os.path.exists(output_file_path):
+                            with open(output_file_path, "rb") as file:
+                                st.image(file.read())
+                        else:
+                            st.error(f"ファイルが見つかりません: {output_file_path}")
+
+                        #st.image(output_file_path)
                         # ダウンロードボタンを表示
                         with open(output_file_path, "rb") as file:
                             btn = st.download_button(
