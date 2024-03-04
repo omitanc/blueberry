@@ -7,4 +7,5 @@ font="monospace"
 
 
 [server]
-maxUploadSize = 200
+maxUploadSize = 3000
+

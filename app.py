@@ -166,7 +166,7 @@ def main():
     is_devmode = st.sidebar.checkbox("Developer mode")
 
     
-    file = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"])
+    files = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"], accept_multiple_files = True)
     
     with st.expander("制限ファイルサイズの変更", expanded=False):
         limited_mb = st.radio(label="制限ファイルサイズを指定してください。（デフォルト：25MB）",
@@ -181,7 +181,13 @@ def main():
     st.write("\n  \n")
     st.write("\n  \n")
     
-    if file is not None:
+    # ファイルがアップロードされていない場合はここで終了
+    if len(files) == 0:
+        st.info("ファイルをアップロードしてください。")
+        st.stop()
+
+    # アップロードされたファイルを処理
+    for file in files:
         saved_file_path = save_uploaded_file(file)
         comp_rate = round(os.path.getsize(saved_file_path) / (limited_mb * 1024 * 1024), 1)
 
