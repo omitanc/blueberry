@@ -52,7 +52,7 @@ def get_video_duration(video_path):
 
 
 
-def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
+def calculate_bitrate(target_size_mb:int, duration:float, audio_bitrate_kbps:int):
     #1MB = 1024 * 1024 * 8ビット
     target_size_bits = target_size_mb * 1024 * 1024 * 8
     total_audio_bits = audio_bitrate_kbps * 1024 * duration
@@ -61,18 +61,19 @@ def calculate_bitrate(target_size_mb, duration, audio_bitrate_kbps=256):
     available_video_bits = target_size_bits - total_audio_bits
     
     # 必要なビデオビットレートを計算（kbps）
-    video_bitrate_kbps = ((available_video_bits / duration) / 1024) * 0.94
-    st.info(f"変換後ビットレート： {round((video_bitrate_kbps / 1000), 2)}Mbps")
+    video_bitrate_kbps = ((available_video_bits / duration) / 1024) * 0.98
+    st.info(f"変換後ビットレート： {round((video_bitrate_kbps / 1024), 2)}Mbps")
 
     return max(int(video_bitrate_kbps), 1)  # ビットレートが非常に小さくならないようにする
 
 
 
 def process_video(video_path, output_path, resize_rate:int, has_no_audio:bool, target_size_mb:int, show_logs:bool):
+    audio_bitrate_kbps = 0 if has_no_audio else 256
     duration = get_video_duration(video_path)
-    bitrate = calculate_bitrate(target_size_mb, duration)
+    bitrate = calculate_bitrate(target_size_mb, duration , audio_bitrate_kbps=audio_bitrate_kbps)
     
-    video_filters = "fps=30," + ("scale=trunc(iw/2):trunc(ih/2)" if resize_rate == 1 else "scale=trunc(iw/2)*2:trunc(ih/2)*2")
+    video_filters = "fps=30," + ("scale=trunc(iw/2)*2:trunc(ih/2)*2" if resize_rate == 1 else "scale=trunc(iw/2):trunc(ih/2)")
     
     if not has_no_audio:
         ffmpeg_command = (
@@ -87,7 +88,7 @@ def process_video(video_path, output_path, resize_rate:int, has_no_audio:bool, t
         ffmpeg_command = (
             ffmpeg
             .input(video_path)
-            .output(output_path, vcodec='libx264',acodec='aac', audio_bitrate='256k', video_bitrate=f'{bitrate}k', vf=video_filters, an=None)
+            .output(output_path, vcodec='libx264', video_bitrate=f'{bitrate}k', vf=video_filters, an=None)
             .overwrite_output()
             .compile()
         )
@@ -113,17 +114,17 @@ def process_image(image_path, output_path, resize_rate:int, target_size_mb:int, 
         resize_fy_root = round(np.sqrt(1 / resize_rate), 8)        
         image = cv2.resize(image, None, fx=resize_fx_root, fy=resize_fy_root)
     
-    quality = 0
-    while quality  <= 9:
-        cv2.imwrite(temp_file_path, image, [cv2.IMWRITE_PNG_COMPRESSION, quality])
+    quality = 100
+    while quality  >= 2:
+        cv2.imwrite(temp_file_path, image, [cv2.IMWRITE_JPEG_QUALITY , quality])
 
-        if quality >= 9:
+        if quality <= 0:
             comp_rate = os.path.getsize(temp_file_path) / (target_size_mb * 1024 * 1024)
             fx_root = round(np.sqrt(1 / comp_rate), 8)
             fy_root = round(np.sqrt(1 / comp_rate), 8)
 
             if show_logs:
-                st.text(f"png_comp_level: {quality}\nfilesize_comp_rate: {comp_rate}\nscale: {fx_root}, {fy_root}")
+                st.text(f"jpeg_comp_level: {quality}\nfilesize_comp_rate: {comp_rate}\nscale: {fx_root}, {fy_root}")
 
             image = cv2.resize(image, None, fx=fx_root, fy=fy_root)
             cv2.imwrite(temp_file_path, image)
@@ -132,12 +133,12 @@ def process_image(image_path, output_path, resize_rate:int, target_size_mb:int, 
 
         if show_logs:
             st.image(image)
-            st.text(f"png_comp_level: {quality}\nfilesize: {os.path.getsize(temp_file_path)} byte")
+            st.text(f"jpeg_comp_level: {quality}\nfilesize: {os.path.getsize(temp_file_path)} byte")
 
         if os.path.getsize(temp_file_path) < target_size_mb * 1024 * 1024:
             shutil.copy(temp_file_path, output_path)
             break
-        quality += 1
+        quality -= 2
 
 
 
@@ -146,7 +147,7 @@ def main():
 
     st.set_page_config(
         page_title = "Blueberry",
-        page_icon = "",
+        page_icon = "🫐",
         layout = "centered",
         initial_sidebar_state = "collapsed",
         menu_items = {
@@ -155,7 +156,7 @@ def main():
         }
     )
 
-    st.title("Blueberry")
+    st.title("🫐 Blueberry")
     st.subheader("Discordの25MB制限なんて大っ嫌い！w")
     
     st.write("\n  \n")
@@ -172,9 +173,9 @@ def main():
                         options=("8MB", "25MB", "50MB", "100MB", "500MB"), index=1, horizontal=True,
                         )
         else:
-            limited_mb = st.text_input("カスタムサイズで指定（MB）", value="4MB")
+            limited_mb = st.text_input("カスタムサイズで指定（MB）", value="25MB")
 
-    limited_mb = int(limited_mb.replace("MB", ""))
+    limited_mb = float(limited_mb.replace("MB", ""))
 
     st.write("\n  \n")
     st.text("オプション")
@@ -203,13 +204,13 @@ def main():
                     resize_rate:int = st.slider("リサイズ倍率", min_value=2, max_value=32)
 
                 else:
-                    resize_rate = int(st.text_input("カスタムリサイズ", value="2"))
+                    resize_rate = float(st.text_input("カスタムリサイズ", value="2"))
 
                 st.info(f"イメージの面積を 1/{resize_rate} にリサイズします。")
                 img = cv2.imread(saved_file_path)
                 w_px, h_px = img.shape[:2]
                 resized_px = round((h_px / resize_rate), 1), round((w_px / resize_rate), 1)
-                st.info(f"リサイズ後のpx数： {resized_px[0]} x {resized_px[1]} / 元のpx数： {h_px} x {w_px}")
+                st.info(f"リサイズ後： {resized_px[0]} x {resized_px[1]}px / オリジナル： {h_px} x {w_px}px")
 
             else: 
                 st.error("動画はリサイズできません。")
@@ -225,7 +226,7 @@ def main():
         total_comp_rate = round(comp_rate * resize_rate, 2)
 
         if total_comp_rate > 1:
-            st.info(f"情報量が1/{total_comp_rate}に圧縮されます。")
+            st.info(f"情報量が 1/{total_comp_rate} に圧縮されます。")
 
         else:
             st.warning(f"ファイルサイズが {limited_mb}MB を下回るため、圧縮されません。")
@@ -234,7 +235,7 @@ def main():
             st.warning("圧縮後の画質が大幅に劣化する可能性があります。")
 
         if st.button('圧縮開始', use_container_width=True):
-            output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".png")
+            output_filename = generate_output_filename(file.name, ".mp4" if "video" in file.type else ".jpg")
             output_file_path = os.path.join(tempfile.gettempdir(), output_filename)
             
             if saved_file_path:
