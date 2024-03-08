@@ -3,12 +3,15 @@ import tempfile
 from PIL import Image
 import shutil
 import datetime
+import base64
 import os
 
 import streamlit as st
 import cv2
 import numpy as np
 import ffmpeg
+import streamlit.components.v1 as components
+from st_copy_to_clipboard import st_copy_to_clipboard
 
 
 
@@ -20,6 +23,19 @@ def generate_output_filename(input_filename, suffix):
     # 新しいファイル名を生成する
     output_filename = f"{name}-COMP_{datetime_str}{suffix}"
     return output_filename
+
+
+
+def get_base64_encoded_file(file_path):
+    with open(file_path, "rb") as file:
+        return base64.b64encode(file.read()).decode()
+
+
+
+def generate_copy_button_html(base64_data):
+    return f"""
+    <button onclick='copyToClipboard("{base64_data}")'>クリップボードにコピー</button>
+    """
 
 
 
@@ -253,7 +269,7 @@ def main():
                             st.error(f"ファイルが見つかりません: {output_file_path}")
 
                         with open(output_file_path, "rb") as file:
-                            btn = st.download_button(
+                            dl_btn = st.download_button(
                                     label="ダウンロード",
                                     data=file,
                                     file_name=output_filename,
@@ -261,6 +277,18 @@ def main():
                                     use_container_width=True
                                 )
                             
+                            # Base64エンコード
+                            #base64_data = get_base64_encoded_file(output_file_path)
+
+                            cp_btn = st.button("コピー",
+                                    use_container_width=True
+                                    )
+                            
+                            if cp_btn:
+                                # Render copy to clipboard button
+                                st_copy_to_clipboard(output_file_path)
+                                st.success("クリップボードにコピーしました。")
+
                     elif file.type in ["video/mp4", "video/mov", "video/quicktime"]:
                         process_video(saved_file_path, output_file_path, resize_rate, has_no_audio, limited_mb, is_devmode)
                         st.success("動画処理が完了しました。")

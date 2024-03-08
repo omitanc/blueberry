@@ -1,0 +1,13 @@
+<script>
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text)
+        .then(() => {
+            console.log('Text copied to clipboard');
+        })
+        .catch((error) => {
+            console.error('Failed to copy text: ', error);
+        });
+    }
+</script>
+
+<button onclick="copyToClipboard('{{ data }}')">クリップボードにコピー</button>
