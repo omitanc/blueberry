@@ -62,6 +62,7 @@ def calculate_bitrate(target_size_mb:int, duration:float, audio_bitrate_kbps:int
     
     # 必要なビデオビットレートを計算（kbps）
     video_bitrate_kbps = ((available_video_bits / duration) / 1024) * 0.98
+    st.info(f"変換後ビットレート： {max(int(video_bitrate_kbps), 1)}kbps")
     st.info(f"変換後ビットレート： {round((video_bitrate_kbps / 1024), 2)}Mbps")
 
     return max(int(video_bitrate_kbps), 1)  # ビットレートが非常に小さくならないようにする
@@ -157,7 +158,7 @@ def main():
     )
 
     st.title("🫐 Blueberry")
-    st.subheader("Discordの25MB制限なんて大っ嫌い！w")
+    st.subheader("Discordの10MB制限なんて大っ嫌い！w")
     
     st.write("\n  \n")
     st.write("\n  \n")
@@ -170,10 +171,10 @@ def main():
     with st.expander("制限ファイルサイズの変更 （デフォルト：25MB）", expanded=False):
         if not is_devmode:
             limited_mb = st.radio(label="",
-                        options=("8MB", "25MB", "50MB", "100MB", "500MB"), index=1, horizontal=True,
+                        options=("10MB", "25MB", "50MB", "100MB", "500MB"), index=1, horizontal=True,
                         )
         else:
-            limited_mb = st.text_input("カスタムサイズで指定（MB）", value="25MB")
+            limited_mb = st.text_input("カスタムサイズで指定（MB）", value="10MB")
 
     limited_mb = float(limited_mb.replace("MB", ""))
 
