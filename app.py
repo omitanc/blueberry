@@ -168,10 +168,10 @@ def main():
     
     files = st.file_uploader("ファイルをアップロードしてください", type=['png', 'jpg', 'mov', 'mp4', "quicktime"], accept_multiple_files = True)
     
-    with st.expander("制限ファイルサイズの変更 （デフォルト：25MB）", expanded=False):
+    with st.expander("制限ファイルサイズの変更 （デフォルト：10MB）", expanded=False):
         if not is_devmode:
             limited_mb = st.radio(label="",
-                        options=("10MB", "25MB", "50MB", "100MB", "500MB"), index=1, horizontal=True,
+                        options=("10MB", "25MB", "50MB", "100MB", "500MB"), index=0, horizontal=True,
                         )
         else:
             limited_mb = st.text_input("カスタムサイズで指定（MB）", value="10MB")
